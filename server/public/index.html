@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Example pixels display</title>
+    <style>
+        canvas {
+            width: 600px;
+            height: 600px;
+            image-rendering: pixelated;
+            outline: 1px solid #333;
+            cursor: crosshair;
+        }
+        #palette {
+            display: flex;
+            gap: 4px;
+        }
+        #palette button {
+            width: 28px;
+            height: 28px;
+            border: 2px solid #ccc;
+            cursor: pointer;
+        }
+        #palette button.selected {
+            border-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="status-text">Draw Pixel</h1>
+    <div id="palette"></div>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <script type="application/javascript">
+        const COLORS = ['#FFFFFF', '#E4E4E4', '#888888', '#222222', '#FFA7D1', '#E50000', '#E59500', '#A06A42', '#E5D900', '#94E044', '#02BE01', '#00D3DD', '#0083C7', '#0000EA', '#CF6EE4', '#820080'];
+        const statusText = document.getElementById("status-text")
+        const canvas = document.getElementById("canvas")
+        const ctx = canvas.getContext('2d');
+        let size = 100
+        let pixelWidth = 1;
+        let pixelHeight = 1;
+        let selectedColor = 0
+
+        COLORS.forEach((hex, index) => {
+            const button = document.createElement('button');
+            button.style.background = hex;
+            if (index === selectedColor) button.classList.add('selected');
+            button.addEventListener('click', () => {
+                selectedColor = index;
+                document.querySelectorAll('#palette button').forEach((b) => b.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+            document.getElementById('palette').appendChild(button);
+        });
+
+        function drawPixel(x,y,color) {
+            ctx.fillStyle = color
+            ctx.fillRect(x, y, pixelWidth, pixelHeight)
+        }
+
+        async function loadCanvas() {
+            const response = await fetch('/api/pixels');
+            const data = await response.json();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            pixelWidth = canvas.width / data.size
+            pixelHeight = canvas.height / data.size
+            size = data.size
+            for (const [key, color] of Object.entries(data.pixels)) {
+                const [x, y] = key.split(',').map(Number);
+                const xCanvas = x * pixelWidth;
+                const yCanvas = y * pixelHeight
+                drawPixel(xCanvas, yCanvas, color);
+            }
+        }
+
+        canvas.addEventListener('click', async (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const xPos = (event.clientX - rect.left) / rect.width
+            const yPos = (event.clientY - rect.top) / rect.height
+            const xServer = Math.floor(xPos * size);
+            const yServer = Math.floor(yPos * size);
+            const xCanva = xServer * pixelWidth;
+            const yCanva = yServer * pixelHeight
+
+            const response = await fetch('/api/pixels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    x: xServer,
+                    y: yServer,
+                    color: COLORS[selectedColor]
+                }),
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                drawPixel(xCanva, yCanva, COLORS[selectedColor]);
+                statusText.textContent = `Pixel posé en (${xServer}, ${yServer})`;
+            } else {
+                statusText.textContent = `Refusé : ${result.error}`;
+            }
+        });
+
+        loadCanvas();
+    </script>
+</body>
+</html>
