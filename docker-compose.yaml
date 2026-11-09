@@ -4,12 +4,18 @@ services:
     init: true
     environment:
       NODE_ID: "node-1"
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
 
   app2:
     build: "./server"
     init: true
     environment:
       NODE_ID: "node-2"
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
 
   nginx:
     image: nginx:alpine
@@ -20,3 +26,6 @@ services:
     depends_on:
       - app1
       - app2
+
+  redis:
+    image: redis:7-alpine
