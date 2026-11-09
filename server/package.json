@@ -1,0 +1,13 @@
+{
+  "name": "tutorial-redis",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "5"
+  }
+}
