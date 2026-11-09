@@ -31,6 +31,7 @@
 <body>
     <h1 id="status-text">Draw Pixel</h1>
     <h2 id="countdown" style="opacity: 0;">placeHolder</h2>
+    <h2 id="node"></h2>
     <div id="palette"></div>
     <canvas id="canvas" width="600" height="600"></canvas>
     <script>
@@ -131,6 +132,7 @@
             switch (response.status) {
                 case 201:
                     drawPixel(xCanva, yCanva, COLORS[selectedColor]);
+                    startCountdown(result.cooldown)
                     statusText.textContent = `Pixel set at (${xServer}, ${yServer})`;
                     break;
                 case 429:
@@ -154,6 +156,9 @@
     </script>
     <script>
         const socket = io({transports: ["websocket"]});
+        socket.on('hello', ({ node }) => {
+            document.getElementById('node').textContent = `Connected to ${node}`;
+        });
         socket.on('pixel', ({ x, y, color }) => {
             const xCanvas = x * pixelWidth
             const yCanvas = y * pixelHeight

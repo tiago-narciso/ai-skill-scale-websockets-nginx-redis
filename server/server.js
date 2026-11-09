@@ -11,16 +11,17 @@ const io = new Server(httpServer);
 const PORT = process.env.PORT || 3000
 const COOLDOWN = process.env.COOLDOWN || 10
 const SIZE = process.env.SIZE || 100
+const NODE_ID = process.env.NODE_ID || crypto.randomUUID()
 
 const pixels = {}
 const usersLastPlacement = {}
 
 io.on('connection', (socket) => {
-    socket.emit('hello');
+    socket.emit('hello', {node: NODE_ID});
 });
 
 app.get("/api/health", (req, res) => {
-    res.json({status: "ok"})
+    res.json({status: "ok", node: NODE_ID})
 })
 
 function isValidCoordinates(x, y) {
@@ -38,31 +39,31 @@ function isValidPixel(x, y, color) {
 }
 
 app.get("/api/pixels", (req, res) => {
-    res.json({size: SIZE, pixels})
+    res.json({size: SIZE, pixels, node: NODE_ID})
 })
 
 app.post("/api/pixels", (req, res) => {
     const {x, y, color, userId} = req.body || {}
     if (!userId) {
-        return res.status(401).json({error: "userId must be provided"})
+        return res.status(401).json({error: "userId must be provided", node: NODE_ID})
     }
 
     if (!isValidPixel(x, y, color)) {
-        return res.status(400).json({error: 'Invalid pixel'});
+        return res.status(400).json({error: 'Invalid pixel', node: NODE_ID});
     }
 
     const elapsed = (Date.now() - (usersLastPlacement[userId] || 0)) / 1000;
     if (elapsed < COOLDOWN) {
         const retryAfter = Math.ceil(COOLDOWN - elapsed);
         res.set('Retry-After', String(retryAfter));
-        return res.status(429).json({ error: 'Cooldown', retryAfter });
+        return res.status(429).json({ error: 'Cooldown', retryAfter, node: NODE_ID });
     }
 
     pixels[[x, y]] = color
     io.emit("pixel", {x, y, color})
     usersLastPlacement[userId] = Date.now();
 
-    res.status(201).json({x, y, color});
+    res.status(201).json({x, y, color,cooldown: COOLDOWN, node: NODE_ID});
 })
 
 app.get("/api/pixels/:x/:y", (req, res) => {
