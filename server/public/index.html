@@ -30,17 +30,32 @@
 </head>
 <body>
     <h1 id="status-text">Draw Pixel</h1>
+    <h2 id="countdown" style="opacity: 0;">placeHolder</h2>
     <div id="palette"></div>
     <canvas id="canvas" width="600" height="600"></canvas>
+    <script>
+        function getUserId() {
+            let sessionId = sessionStorage.getItem("userId")
+
+            if (!sessionId) {
+                sessionId = crypto.randomUUID()
+                sessionStorage.setItem("userId", sessionId)
+            }
+
+            return sessionId;
+        }
+    </script>
     <script type="application/javascript">
         const COLORS = ['#FFFFFF', '#E4E4E4', '#888888', '#222222', '#FFA7D1', '#E50000', '#E59500', '#A06A42', '#E5D900', '#94E044', '#02BE01', '#00D3DD', '#0083C7', '#0000EA', '#CF6EE4', '#820080'];
         const statusText = document.getElementById("status-text")
+        const countdownText = document.getElementById('countdown')
         const canvas = document.getElementById("canvas")
         const ctx = canvas.getContext('2d');
         let size = 100
-        let pixelWidth = 1;
-        let pixelHeight = 1;
+        let pixelWidth = 1
+        let pixelHeight = 1
         let selectedColor = 0
+        let countdownInterval = null
 
         COLORS.forEach((hex, index) => {
             const button = document.createElement('button');
@@ -76,6 +91,22 @@
             }
         }
 
+        function startCountdown(seconds) {
+            clearInterval(countdownInterval);
+            let remaining = seconds;
+            countdownText.style.opacity = "1"
+            const tick = () => {
+                countdownText.textContent =`Next pixel in ${remaining} s`
+                if (remaining <= 0) {
+                    countdownText.style.opacity = "0"
+                    clearInterval(countdownInterval)
+                }
+                remaining--;
+            };
+            tick();
+            countdownInterval = setInterval(tick, 1000);
+        }
+
         canvas.addEventListener('click', async (event) => {
             const rect = canvas.getBoundingClientRect();
             const xPos = (event.clientX - rect.left) / rect.width
@@ -91,16 +122,31 @@
                 body: JSON.stringify({
                     x: xServer,
                     y: yServer,
-                    color: COLORS[selectedColor]
+                    color: COLORS[selectedColor],
+                    userId: getUserId()
                 }),
             });
             const result = await response.json();
 
+            switch (response.status) {
+                case 201:
+                    drawPixel(xCanva, yCanva, COLORS[selectedColor]);
+                    statusText.textContent = `Pixel set at (${xServer}, ${yServer})`;
+                    break;
+                case 429:
+                    startCountdown(result.retryAfter)
+                case 401:
+                case 400:
+                    statusText.textContent = `Refused : ${result.error}`
+                    break
+
+
+            }
             if (response.ok) {
                 drawPixel(xCanva, yCanva, COLORS[selectedColor]);
-                statusText.textContent = `Pixel posé en (${xServer}, ${yServer})`;
+                statusText.textContent = `Pixel set at (${xServer}, ${yServer})`;
             } else {
-                statusText.textContent = `Refusé : ${result.error}`;
+                statusText.textContent = `Refused : ${result.error}`;
             }
         });
 

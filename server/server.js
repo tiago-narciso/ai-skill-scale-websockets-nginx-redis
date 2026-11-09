@@ -9,10 +9,11 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const PORT = process.env.PORT || 3000
+const COOLDOWN = process.env.COOLDOWN || 10
+const SIZE = process.env.SIZE || 100
 
-
-const SIZE = 100
 const pixels = {}
+const usersLastPlacement = {}
 
 io.on('connection', (socket) => {
     socket.emit('hello');
@@ -41,13 +42,25 @@ app.get("/api/pixels", (req, res) => {
 })
 
 app.post("/api/pixels", (req, res) => {
-    const {x, y, color} = req.body || {}
+    const {x, y, color, userId} = req.body || {}
+    if (!userId) {
+        return res.status(401).json({error: "userId must be provided"})
+    }
 
     if (!isValidPixel(x, y, color)) {
         return res.status(400).json({error: 'Invalid pixel'});
     }
+
+    const elapsed = (Date.now() - (usersLastPlacement[userId] || 0)) / 1000;
+    if (elapsed < COOLDOWN) {
+        const retryAfter = Math.ceil(COOLDOWN - elapsed);
+        res.set('Retry-After', String(retryAfter));
+        return res.status(429).json({ error: 'Cooldown', retryAfter });
+    }
+
     pixels[[x, y]] = color
     io.emit("pixel", {x, y, color})
+    usersLastPlacement[userId] = Date.now();
 
     res.status(201).json({x, y, color});
 })
