@@ -76,5 +76,5 @@ app.get("/api/pixels/:x/:y", (req, res) => {
 })
 
 httpServer.listen(PORT, () => {
-    console.log(`Server started on http://localhost:${PORT}`);
+    console.log(`Server node ${NODE_ID} started on http://localhost:${PORT}`);
 })
